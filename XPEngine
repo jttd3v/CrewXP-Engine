@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crew XP Engine Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#0A0F1A',
+                        card: '#111625',
+                        neon: '#1E90FF',
+                        neonHover: '#3B9EFF',
+                        separator: 'rgba(255, 255, 255, 0.25)',
+                        muted: '#94A3B8',
+                        danger: '#EF4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0A0F1A;
+            color: #E2E8F0;
+        }
+        .neon-border {
+            border: 1px solid rgba(30, 144, 255, 0.3);
+            box-shadow: 0 0 10px rgba(30, 144, 255, 0.05);
+        }
+        .neon-text {
+            color: #1E90FF;
+            text-shadow: 0 0 5px rgba(30, 144, 255, 0.4);
+        }
+        .table-row-hover:hover {
+            background-color: rgba(30, 144, 255, 0.05);
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+        .glass-panel {
+            background: rgba(17, 22, 37, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            background-color: rgba(10, 15, 26, 0.9);
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6 font-sans relative">
+
+    <!-- Top Navigation / Header -->
+    <header class="flex justify-between items-center mb-8 border-b border-separator pb-4">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight text-white">Crew<span class="neon-text">XP</span> Engine</h1>
+            <p class="text-sm text-muted">Officer Experience Point Calculation System</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="toggleConfig()" class="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mr-4 border border-separator rounded px-3 py-2 bg-card">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                Configure Rules
+            </button>
+
+            <div class="flex flex-col">
+                <label class="text-xs text-muted mb-1">Simulate As Of Date</label>
+                <input type="date" id="asOfDate" class="bg-card border border-separator rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-neon transition-colors font-mono">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs text-muted mb-1">Select Vessel</label>
+                <select id="vesselSelect" class="bg-card border border-separator rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-neon transition-colors min-w-[200px]">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+            <button onclick="runEngine()" class="mt-5 bg-neon hover:bg-neonHover text-white font-medium py-2 px-4 rounded shadow-[0_0_15px_rgba(30,144,255,0.3)] transition-all text-sm">
+                Recalculate
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-12 gap-6">
+
+        <!-- Left Sidebar: Rules & Context -->
+        <div class="col-span-12 lg:col-span-3 space-y-6">
+            
+            <!-- Active Rule Card -->
+            <div class="glass-panel neon-border rounded-lg p-5">
+                <h3 class="text-sm font-medium text-muted uppercase tracking-wider mb-4">Active Logic</h3>
+                
+                <div class="mb-4">
+                    <label class="text-xs text-muted block">Vessel Manager</label>
+                    <div id="displayManager" class="text-lg font-semibold text-white truncate">--</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="text-xs text-muted block">Applied Preset</label>
+                    <div id="displayPreset" class="text-sm font-mono text-neon truncate">--</div>
+                    <div id="displaySource" class="text-xs text-gray-500 italic mt-1">Source: --</div>
+                </div>
+
+                <div class="border-t border-separator my-4"></div>
+
+                <h4 class="text-xs font-semibold text-white mb-3">Experience Bands</h4>
+                <div id="bandsContainer" class="space-y-2">
+                    <!-- Bands injected here -->
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="glass-panel border border-separator rounded-lg p-5">
+                <h3 class="text-sm font-medium text-muted uppercase tracking-wider mb-2">Vessel Total XP</h3>
+                <div id="vesselTotalXP" class="text-4xl font-bold text-white font-mono tracking-tighter">0</div>
+                <p class="text-xs text-muted mt-2">Sum of all active officer points</p>
+            </div>
+        </div>
+
+        <!-- Center: Officer List & Calc -->
+        <div class="col-span-12 lg:col-span-9">
+            <div class="glass-panel border border-separator rounded-lg overflow-hidden">
+                <div class="p-5 border-b border-separator flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-white">Officer Experience Matrix</h2>
+                    <span class="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700 font-mono">RankType: Officer</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-[#0f1522] text-muted uppercase text-xs font-medium border-b border-separator">
+                            <tr>
+                                <th class="px-6 py-3">Rank</th>
+                                <th class="px-6 py-3">Officer Name</th>
+                                <th class="px-6 py-3 text-right">Months w/ Manager</th>
+                                <th class="px-6 py-3 text-center">Band</th>
+                                <th class="px-6 py-3 text-right text-neon">Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crewTableBody" class="divide-y divide-separator/50">
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="hidden p-8 text-center text-muted">
+                    No officers found onboard for this date.
+                </div>
+            </div>
+
+            <!-- Summaries Section -->
+            <div class="grid grid-cols-2 gap-6 mt-6">
+                <!-- Vessel History Summary -->
+                <div class="glass-panel border border-separator rounded-lg p-5">
+                    <h3 class="text-sm font-medium text-white mb-4">Current Crew: Vessel History</h3>
+                    <div class="space-y-3" id="vesselSummaryList">
+                        <!-- Injected JS -->
+                    </div>
+                </div>
+
+                <!-- Manager History Summary -->
+                <div class="glass-panel border border-separator rounded-lg p-5">
+                    <h3 class="text-sm font-medium text-white mb-4">Current Crew: Manager History</h3>
+                    <div class="space-y-3" id="managerSummaryList">
+                        <!-- Injected JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIGURATION MODAL (Hidden by default) -->
+    <div id="configModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-6">
+        <div class="glass-panel border border-separator rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-separator flex justify-between items-center bg-[#111625]">
+                <div>
+                    <h2 class="text-xl font-semibold text-white">Rule Configuration</h2>
+                    <p class="text-xs text-muted">Manage Presets, Bands, and Entity Assignments</p>
+                </div>
+                <button onclick="toggleConfig()" class="text-gray-400 hover:text-white p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- COLUMN 1: PRESET & BAND EDITOR -->
+                <div class="space-y-6">
+                    <h3 class="text-sm font-semibold text-neon uppercase tracking-wide">1. Edit Presets & Bands</h3>
+                    
+                    <div>
+                        <label class="text-xs text-muted block mb-2">Select Preset to Edit</label>
+                        <select id="configPresetSelect" onchange="renderConfigBands()" class="w-full bg-card border border-separator rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-neon font-mono">
+                            <!-- Populated JS -->
+                        </select>
+                    </div>
+
+                    <div class="bg-[#0f1522] rounded border border-separator/50 p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-xs font-semibold text-white">Experience Bands</span>
+                            <span class="text-xs text-muted italic">Changes apply immediately</span>
+                        </div>
+                        <div id="configBandsList" class="space-y-3">
+                            <!-- Band Inputs Injected Here -->
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 p-2 bg-yellow-900/20 border border-yellow-700/30 rounded">
+                        Note: Bands define how many months of experience translate to points.
+                    </div>
+                </div>
+
+                <!-- COLUMN 2: ASSIGNMENTS -->
+                <div class="space-y-6">
+                    <h3 class="text-sm font-semibold text-neon uppercase tracking-wide">2. Entity Assignments</h3>
+                    
+                    <!-- Manager Assignments -->
+                    <div class="bg-[#0f1522]/50 p-4 rounded border border-separator/30">
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="text-xs text-muted uppercase tracking-wide">Manager Rules</label>
+                            <button onclick="addRule('principal')" class="p-1 rounded bg-neon/20 hover:bg-neon/40 text-neon transition-colors" title="Add Manager Rule">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                        </div>
+                        <div id="configManagerList" class="space-y-2 min-h-[50px]">
+                            <!-- Manager Rows -->
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2 italic">Unlisted managers use Default Preset.</p>
+                    </div>
+
+                    <!-- Vessel Assignments -->
+                    <div class="bg-[#0f1522]/50 p-4 rounded border border-separator/30">
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="text-xs text-muted uppercase tracking-wide">Vessel Overrides</label>
+                            <button onclick="addRule('vessel')" class="p-1 rounded bg-neon/20 hover:bg-neon/40 text-neon transition-colors" title="Add Vessel Rule">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                        </div>
+                        <div id="configVesselList" class="space-y-2 min-h-[50px]">
+                            <!-- Vessel Rows -->
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-2 italic">Unlisted vessels inherit from Manager.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-separator bg-[#111625] flex justify-end gap-3">
+                <button onclick="toggleConfig()" class="text-sm text-gray-400 hover:text-white px-4 py-2">Close</button>
+                <button onclick="saveAndApply()" class="bg-neon hover:bg-neonHover text-white font-medium py-2 px-6 rounded text-sm shadow-[0_0_10px_rgba(30,144,255,0.2)]">
+                    Save & Apply Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC ENGINE -->
+    <script>
+        // --- 1. MOCK DATABASE (Schema Replication) ---
+        
+        const principals = [
+            { id: 101, name: "Neptune Ship Management" },
+            { id: 102, name: "Jupiter Tankers Ltd" }
+        ];
+
+        const vessels = [
+            { id: 1, name: "MV STAR GAZER", principalId: 101 },
+            { id: 2, name: "MV OCEAN PIONEER", principalId: 101 },
+            { id: 3, name: "MT JUPITER ONE", principalId: 102 },
+            { id: 4, name: "MT JUPITER TWO", principalId: 102 }
+        ];
+
+        const presets = [
+            { id: 1, name: "Default CAMII XP v1", isDefault: true },
+            { id: 2, name: "Jupiter Strict Standard", isDefault: false },
+            { id: 3, name: "Vessel Specific High-Bar", isDefault: false }
+        ];
+
+        // Relation: Principal/Vessel -> Preset
+        // NOTE: This is mutable in the prototype
+        let presetRules = [
+            { principalId: 102, presetId: 2 }, // Jupiter uses Strict Standard
+            { vesselId: 2, presetId: 3 }       // MV OCEAN PIONEER has a special override
+        ];
+
+        // Bands: Rule Logic
+        // NOTE: This is mutable in the prototype
+        let bands = [
+            // Default Preset (1)
+            { presetId: 1, min: 0, max: 5, points: 1 },
+            { presetId: 1, min: 6, max: 11, points: 2 },
+            { presetId: 1, min: 12, max: 23, points: 3 },
+            { presetId: 1, min: 24, max: 999, points: 4 },
+            
+            // Jupiter Strict (2) - Harder to get points
+            { presetId: 2, min: 0, max: 11, points: 1 },
+            { presetId: 2, min: 12, max: 23, points: 2 },
+            { presetId: 2, min: 24, max: 35, points: 3 },
+            { presetId: 2, min: 36, max: 999, points: 4 },
+
+            // Vessel Specific (3) - Easier points
+            { presetId: 3, min: 0, max: 3, points: 1 },
+            { presetId: 3, min: 4, max: 8, points: 2 },
+            { presetId: 3, min: 9, max: 12, points: 3 },
+            { presetId: 3, min: 13, max: 999, points: 5 }, // Special 5 points
+        ];
+
+        const crew = [
+            { id: 1, name: "John Smith", rank: "Master", rankType: "Officer" },
+            { id: 2, name: "Alejandro Cruz", rank: "Ch. Off", rankType: "Officer" },
+            { id: 3, name: "Ivan Petrov", rank: "2nd Off", rankType: "Officer" },
+            { id: 4, name: "Kenji Sato", rank: "Ch. Eng", rankType: "Officer" },
+            { id: 5, name: "Mark Doe", rank: "AB", rankType: "Rating" } // Should be ignored
+        ];
+
+        // Sea Service History (The raw data for calculation)
+        const seaService = [
+            // John Smith (Master) - Long timer with Neptune (101)
+            { crewId: 1, vesselId: 1, signOn: "2020-01-01", signOff: "2020-08-01" }, // Neptune
+            { crewId: 1, vesselId: 2, signOn: "2021-01-01", signOff: "2021-09-01" }, // Neptune
+            { crewId: 1, vesselId: 1, signOn: "2022-01-01", signOff: "2022-10-01" }, // Neptune
+            { crewId: 1, vesselId: 1, signOn: "2023-01-01", signOff: null },         // Currently on Vessel 1
+
+            // Alejandro Cruz (Ch Off) - Mixed experience
+            { crewId: 2, vesselId: 3, signOn: "2021-05-01", signOff: "2021-12-01" }, // Jupiter (102)
+            { crewId: 2, vesselId: 1, signOn: "2022-06-01", signOff: "2022-11-01" }, // Neptune (101)
+            { crewId: 2, vesselId: 1, signOn: "2023-02-15", signOff: null },         // Currently on Vessel 1
+
+            // Ivan Petrov (2nd Off) - New guy
+            { crewId: 3, vesselId: 1, signOn: "2023-04-01", signOff: null },         // Currently on Vessel 1
+
+            // Kenji Sato (Ch Eng) - On Vessel 2 (Ocean Pioneer)
+            { crewId: 4, vesselId: 2, signOn: "2019-01-01", signOff: "2019-12-31" }, // Neptune
+            { crewId: 4, vesselId: 2, signOn: "2023-01-01", signOff: null },         // Currently on Vessel 2
+        ];
+
+        // --- 2. CORE LOGIC ENGINE ---
+
+        function init() {
+            // Set default date to today
+            document.getElementById('asOfDate').valueAsDate = new Date();
+            
+            // Populate Main Vessel Dropdown
+            const select = document.getElementById('vesselSelect');
+            select.innerHTML = '';
+            vessels.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.text = v.name;
+                select.appendChild(opt);
+            });
+            
+            // Populate Config Dropdowns
+            populateConfigUI();
+
+            // Initial Run
+            runEngine();
+        }
+
+        function getMonthDiff(d1, d2) {
+            let months;
+            months = (d2.getFullYear() - d1.getFullYear()) * 12;
+            months -= d1.getMonth();
+            months += d2.getMonth();
+            return months <= 0 ? 0 : months; // Simplify partial months to integer floor for demo
+        }
+
+        function resolvePreset(vesselId, principalId) {
+            // 1. Check Vessel Specific
+            const vesselRule = presetRules.find(r => r.vesselId === vesselId);
+            if (vesselRule) return { ...presets.find(p => p.id === vesselRule.presetId), source: "Vessel Override" };
+
+            // 2. Check Principal Specific
+            const principalRule = presetRules.find(r => r.principalId === principalId);
+            if (principalRule) return { ...presets.find(p => p.id === principalRule.presetId), source: "Manager Standard" };
+
+            // 3. Default
+            return { ...presets.find(p => p.isDefault), source: "System Default" };
+        }
+
+        function runEngine() {
+            const selectedVesselId = parseInt(document.getElementById('vesselSelect').value);
+            const asOfDateStr = document.getElementById('asOfDate').value;
+            const asOfDate = new Date(asOfDateStr);
+
+            // A. Context Resolution
+            const vessel = vessels.find(v => v.id === selectedVesselId);
+            const principal = principals.find(p => p.id === vessel.principalId);
+            const activePreset = resolvePreset(vessel.id, principal.id);
+            const activeBands = bands.filter(b => b.presetId === activePreset.id).sort((a,b) => a.min - b.min);
+
+            // Update Left Panel
+            document.getElementById('displayManager').innerText = principal.name;
+            document.getElementById('displayPreset').innerText = activePreset.name;
+            document.getElementById('displaySource').innerText = "Source: " + activePreset.source;
+
+            const bandHtml = activeBands.map(b => `
+                <div class="flex justify-between items-center text-xs p-2 rounded bg-card/50 border border-separator/50">
+                    <span class="text-gray-400 font-mono">${b.min} - ${b.max > 900 ? 'MAX' : b.max} mo</span>
+                    <span class="text-neon font-bold">${b.points} pts</span>
+                </div>
+            `).join('');
+            document.getElementById('bandsContainer').innerHTML = bandHtml;
+
+            // B. Identify Crew Onboard
+            const onboard = seaService.filter(ss => {
+                const sOn = new Date(ss.signOn);
+                const sOff = ss.signOff ? new Date(ss.signOff) : null;
+                if (ss.vesselId !== selectedVesselId) return false;
+                const isOnboard = sOn <= asOfDate && (sOff === null || sOff >= asOfDate);
+                return isOnboard;
+            }).map(ss => {
+                return { ...crew.find(c => c.id === ss.crewId), currentSignOn: ss.signOn };
+            }).filter(c => c.rankType === 'Officer');
+
+            let totalVesselXP = 0;
+            const tableBody = document.getElementById('crewTableBody');
+            tableBody.innerHTML = '';
+
+            if (onboard.length === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+            } else {
+                document.getElementById('emptyState').classList.add('hidden');
+            }
+
+            // C. Calculate XP for each Officer
+            onboard.forEach(officer => {
+                const history = seaService.filter(ss => ss.crewId === officer.id);
+                let monthsWithManager = 0;
+
+                history.forEach(h => {
+                    const hVessel = vessels.find(v => v.id === h.vesselId);
+                    if (!hVessel) return;
+
+                    if (hVessel.principalId === principal.id) {
+                        const hSignOn = new Date(h.signOn);
+                        if (hSignOn > asOfDate) return; 
+
+                        let hEndDate;
+                        if (h.signOff) {
+                            const actualSignOff = new Date(h.signOff);
+                            hEndDate = actualSignOff > asOfDate ? asOfDate : actualSignOff;
+                        } else {
+                            hEndDate = asOfDate;
+                        }
+                        const m = getMonthDiff(hSignOn, hEndDate);
+                        monthsWithManager += m;
+                    }
+                });
+
+                let points = 0;
+                let bandText = "";
+                for (let b of activeBands) {
+                    if (monthsWithManager >= b.min && (monthsWithManager <= b.max)) {
+                        points = b.points;
+                        bandText = `${b.min}-${b.max > 900 ? '+' : b.max} mo`;
+                        break;
+                    }
+                }
+
+                totalVesselXP += points;
+
+                const row = `
+                    <tr class="table-row-hover text-gray-300 transition-colors border-b border-separator/30">
+                        <td class="px-6 py-4 font-medium text-white">${officer.rank}</td>
+                        <td class="px-6 py-4">${officer.name}</td>
+                        <td class="px-6 py-4 text-right font-mono text-gray-400">${monthsWithManager}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="text-xs px-2 py-1 rounded bg-gray-800 border border-gray-600 text-gray-400">${bandText}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono font-bold text-neon">${points}</td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            document.getElementById('vesselTotalXP').innerText = totalVesselXP;
+            generateSummaries(onboard.length, principal.name, vessel.name, totalVesselXP);
+        }
+
+        function generateSummaries(count, managerName, vesselName, xp) {
+            const vList = document.getElementById('vesselSummaryList');
+            vList.innerHTML = `
+                <div class="flex justify-between text-sm border-b border-separator/30 pb-2">
+                    <span class="text-muted">Total Officers</span>
+                    <span class="text-white font-mono">${count}</span>
+                </div>
+                <div class="flex justify-between text-sm border-b border-separator/30 pb-2">
+                    <span class="text-muted">Avg XP per Officer</span>
+                    <span class="text-white font-mono">${count > 0 ? (xp/count).toFixed(1) : 0}</span>
+                </div>
+                <div class="flex justify-between text-sm pt-1">
+                    <span class="text-muted">Retention Score</span>
+                    <span class="text-neon font-mono">High</span>
+                </div>
+            `;
+
+            const mList = document.getElementById('managerSummaryList');
+            mList.innerHTML = `
+                <div class="flex justify-between text-sm border-b border-separator/30 pb-2">
+                    <span class="text-muted">Manager</span>
+                    <span class="text-white text-right truncate pl-4">${managerName}</span>
+                </div>
+                <div class="flex justify-between text-sm border-b border-separator/30 pb-2">
+                    <span class="text-muted">Global Fleet Pool</span>
+                    <span class="text-white font-mono">142</span>
+                </div>
+                <div class="flex justify-between text-sm pt-1">
+                    <span class="text-muted">Compliance Status</span>
+                    <span class="text-green-400 font-mono">OK</span>
+                </div>
+            `;
+        }
+
+        // --- 3. CONFIGURATION LOGIC ---
+
+        function toggleConfig() {
+            const modal = document.getElementById('configModal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                populateConfigUI();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function getAvailableEntities(type) {
+            if (type === 'principal') {
+                const configuredIds = presetRules.filter(r => r.principalId).map(r => r.principalId);
+                return principals.filter(p => !configuredIds.includes(p.id));
+            } else {
+                const configuredIds = presetRules.filter(r => r.vesselId).map(r => r.vesselId);
+                return vessels.filter(v => !configuredIds.includes(v.id));
+            }
+        }
+
+        function addRule(type) {
+            const available = getAvailableEntities(type);
+            if (available.length === 0) {
+                alert("All existing " + (type === 'principal' ? "managers" : "vessels") + " are already configured.");
+                return;
+            }
+            
+            // Auto-select the first available one for the prototype
+            const entity = available[0];
+            const defaultPreset = presets.find(p => !p.isDefault) || presets[0]; 
+
+            if (type === 'principal') {
+                presetRules.push({ principalId: entity.id, presetId: defaultPreset.id });
+            } else {
+                presetRules.push({ vesselId: entity.id, presetId: defaultPreset.id });
+            }
+            populateConfigUI();
+        }
+
+        function removeRule(type, id) {
+            if (type === 'principal') {
+                presetRules = presetRules.filter(r => r.principalId !== id);
+            } else {
+                presetRules = presetRules.filter(r => r.vesselId !== id);
+            }
+            populateConfigUI();
+        }
+
+        function populateConfigUI() {
+            // A. Populate Preset Select
+            const presetSel = document.getElementById('configPresetSelect');
+            presetSel.innerHTML = '';
+            presets.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.text = p.name + (p.isDefault ? " (Default)" : "");
+                presetSel.appendChild(opt);
+            });
+            renderConfigBands(); 
+
+            // B. Populate Managers (Exception List Only)
+            const mgrList = document.getElementById('configManagerList');
+            mgrList.innerHTML = '';
+            
+            // Filter rules to only show Principals
+            const principalRules = presetRules.filter(r => r.principalId);
+            
+            principalRules.forEach(rule => {
+                const p = principals.find(pr => pr.id === rule.principalId);
+                if (!p) return;
+
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-card/80 p-2 rounded border border-separator/30 mb-2';
+                row.innerHTML = `
+                    <span class="text-sm text-white truncate max-w-[120px]">${p.name}</span>
+                    <div class="flex items-center gap-2">
+                        <select class="bg-[#0A0F1A] border border-separator/50 text-xs text-muted rounded px-2 py-1 max-w-[130px]" onchange="updateAssignment('principal', ${p.id}, this.value)">
+                            ${presets.map(pr => `<option value="${pr.id}" ${rule.presetId == pr.id ? "selected" : ""}>${pr.name}</option>`).join('')}
+                        </select>
+                        <button onclick="removeRule('principal', ${p.id})" class="text-danger hover:text-red-400 p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                `;
+                mgrList.appendChild(row);
+            });
+
+            if (principalRules.length === 0) {
+                mgrList.innerHTML = '<div class="text-xs text-muted/50 p-2 italic text-center">No overrides. All managers use System Default.</div>';
+            }
+
+            // C. Populate Vessels (Exception List Only)
+            const vslList = document.getElementById('configVesselList');
+            vslList.innerHTML = '';
+            
+            const vesselRules = presetRules.filter(r => r.vesselId);
+
+            vesselRules.forEach(rule => {
+                const v = vessels.find(vl => vl.id === rule.vesselId);
+                if (!v) return;
+
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-card/80 p-2 rounded border border-separator/30 mb-2';
+                row.innerHTML = `
+                    <span class="text-sm text-white truncate max-w-[120px]">${v.name}</span>
+                    <div class="flex items-center gap-2">
+                        <select class="bg-[#0A0F1A] border border-separator/50 text-xs text-muted rounded px-2 py-1 max-w-[130px]" onchange="updateAssignment('vessel', ${v.id}, this.value)">
+                            ${presets.map(pr => `<option value="${pr.id}" ${rule.presetId == pr.id ? "selected" : ""}>${pr.name}</option>`).join('')}
+                        </select>
+                        <button onclick="removeRule('vessel', ${v.id})" class="text-danger hover:text-red-400 p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                `;
+                vslList.appendChild(row);
+            });
+
+            if (vesselRules.length === 0) {
+                vslList.innerHTML = '<div class="text-xs text-muted/50 p-2 italic text-center">No overrides. All vessels inherit from Manager.</div>';
+            }
+        }
+
+        // Handle updates from the dropdowns in the lists
+        function updateAssignment(type, entityId, presetId) {
+            const pIdVal = parseInt(presetId);
+            
+            // Remove old entry first
+            if (type === 'principal') {
+                presetRules = presetRules.filter(r => r.principalId !== entityId);
+                presetRules.push({ principalId: entityId, presetId: pIdVal });
+            } else {
+                presetRules = presetRules.filter(r => r.vesselId !== entityId);
+                presetRules.push({ vesselId: entityId, presetId: pIdVal });
+            }
+        }
+
+        function renderConfigBands() {
+            const presetId = parseInt(document.getElementById('configPresetSelect').value);
+            const container = document.getElementById('configBandsList');
+            const currentBands = bands.filter(b => b.presetId === presetId).sort((a,b) => a.min - b.min);
+
+            container.innerHTML = '';
+            currentBands.forEach((b, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center';
+                div.innerHTML = `
+                    <div class="flex-1 flex flex-col">
+                        <label class="text-[10px] text-muted">Min</label>
+                        <input type="number" value="${b.min}" class="bg-[#0A0F1A] border border-separator rounded px-2 py-1 text-xs text-white w-full text-center" onchange="updateBand(${presetId}, ${idx}, 'min', this.value)">
+                    </div>
+                    <span class="text-muted pt-4">-</span>
+                    <div class="flex-1 flex flex-col">
+                        <label class="text-[10px] text-muted">Max</label>
+                        <input type="number" value="${b.max}" class="bg-[#0A0F1A] border border-separator rounded px-2 py-1 text-xs text-white w-full text-center" onchange="updateBand(${presetId}, ${idx}, 'max', this.value)">
+                    </div>
+                    <span class="text-neon pt-4">=</span>
+                    <div class="flex-1 flex flex-col">
+                        <label class="text-[10px] text-neon">Points</label>
+                        <input type="number" value="${b.points}" class="bg-[#0A0F1A] border border-neon/50 rounded px-2 py-1 text-xs text-white w-full text-center font-bold" onchange="updateBand(${presetId}, ${idx}, 'points', this.value)">
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateBand(presetId, indexInGroup, field, value) {
+            // Find the band in the main array
+            const targetBands = bands.filter(b => b.presetId === presetId).sort((a,b) => a.min - b.min);
+            const bandToEdit = targetBands[indexInGroup];
+            
+            if (bandToEdit) {
+                bandToEdit[field] = parseInt(value);
+            }
+        }
+
+        function saveAndApply() {
+            // Since we mutated arrays directly in change handlers (for simplicity),
+            // we just need to close and re-run engine.
+            toggleConfig();
+            runEngine();
+            
+            // Visual feedback
+            const btn = document.querySelector('button[onclick="runEngine()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "Rules Applied!";
+            btn.classList.add('bg-green-500', 'hover:bg-green-600');
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+            }, 2000);
+        }
+
+        // Boot
+        window.onload = init;
+
+    </script>
+</body>
+</html>
